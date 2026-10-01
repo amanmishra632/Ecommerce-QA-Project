@@ -18,5 +18,9 @@ db.exec(`
     total_amount INTEGER NOT NULL
   );
 `);
+db.prepare(`
+    INSERT OR IGNORE INTO products (id, name, price, stock)
+    VALUES (?, ?, ?, ?)
+`).run(1, "Laptop", 500, 10);
 
 module.exports = db;
