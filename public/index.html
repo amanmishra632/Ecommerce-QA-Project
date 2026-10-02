@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>E-commerce Store</title>
+</head>
+
+<body>
+
+    <h1>E-commerce Store</h1>
+
+    <h2>Product</h2>
+
+    <p>Product: Laptop</p>
+    <p>Price: ₹500</p>
+    <p>Available Stock: 10</p>
+
+    <br>
+
+    <label for="email">Customer Email:</label>
+    <input type="email" id="email">
+
+    <br><br>
+
+    <label for="quantity">Quantity:</label>
+    <input type="number" id="quantity" min="0">
+
+    <br><br>
+
+    <button id="orderButton">Place Order</button>
+
+    <p id="result"></p>
+
+    <script>
+        document.getElementById("orderButton").addEventListener("click", async () => {
+
+            const email = document.getElementById("email").value;
+            const quantity = Number(document.getElementById("quantity").value);
+
+            const response = await fetch("/orders", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    customer_email: email,
+                    product_id: 1,
+                    quantity: quantity
+                })
+            });
+
+            const data = await response.json();
+
+            document.getElementById("result").textContent =
+                data.message;
+        });
+    </script>
+
+</body>
+</html>
