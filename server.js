@@ -34,21 +34,46 @@ app.post("/orders", (req, res) => {
         });
     }
 
-    const total_amount = product.price * quantity;
+    
+const total_amount = product.price * quantity;
 
-    const result = db.prepare(`
+// Insert the order and reduce stock in one transaction.
+// The stock update succeeds only if enough stock remains.
+const createOrder = db.transaction(() => {
+    const stockUpdate = db.prepare(`
+        UPDATE products
+        SET stock = stock - ?
+        WHERE id = ? AND stock >= ?
+    `).run(quantity, product_id, quantity);
+
+    // If no product row was updated, stock is insufficient.
+    if (stockUpdate.changes === 0) {
+        return null;
+    }
+
+    return db.prepare(`
         INSERT INTO orders
         (customer_email, product_id, quantity, total_amount)
         VALUES (?, ?, ?, ?)
     `).run(customer_email, product_id, quantity, total_amount);
+});
 
-    res.status(201).json({
-        message: "Order created successfully",
-        order_id: result.lastInsertRowid,
-        product_id,
-        quantity,
-        total_amount
+const result = createOrder();
+
+if (!result) {
+    return res.status(400).json({
+        message: "Requested quantity exceeds available stock"
     });
+}
+
+res.status(201).json({
+    message: "Order created successfully",
+    order_id: result.lastInsertRowid,
+    product_id,
+    quantity,
+    total_amount
+});
+
 });
 
 app.listen(3000, () => {

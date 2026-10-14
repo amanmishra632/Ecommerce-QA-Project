@@ -3,11 +3,17 @@ const { test, expect } = require("@playwright/test");
 
 test.beforeEach(() => {
     db.prepare("DELETE FROM orders").run();
+
+    db.prepare(`
+        UPDATE products
+        SET stock = 10
+        WHERE id = 1
+    `).run();
 });
 
 test("products API returns correct product data", async ({ request }) => {
     const response = await request.get(
-        "http://localhost:3000/products"
+        "/products"
     );
 
     expect(response.status()).toBe(200);
@@ -21,8 +27,11 @@ test("products API returns correct product data", async ({ request }) => {
 
 
 test("A customer cannot purchase more than the available stock", async ({ request }) => {
+    const before = db.prepare(
+    "SELECT COUNT(*) AS total FROM orders"
+    ).get().total;
     const response = await request.post(
-        "http://localhost:3000/orders",
+        "/orders",
         {
             data: {
                 customer_email: "customer@test.com",
@@ -39,6 +48,10 @@ test("A customer cannot purchase more than the available stock", async ({ reques
     expect(data.message).toBe(
         "Requested quantity exceeds available stock"
     );
+    const after= db.prepare(
+    "SELECT COUNT(*) AS total FROM orders"
+    ).get().total;
+    expect(after).toBe(before);
 
     const order = db.prepare(`
         SELECT * FROM orders
@@ -53,7 +66,7 @@ test("A customer cannot purchase more than the available stock", async ({ reques
 
 test("A customer can purchase an available product", async ({ request }) => {
     const response = await request.post(
-        "http://localhost:3000/orders",
+        "/orders",
         {
             data: {
                 customer_email: "customer@test.com",
@@ -88,7 +101,7 @@ test("A customer can purchase an available product", async ({ request }) => {
 
 test("A customer cannot purchase a product that does not exist", async ({ request }) => {
     const response = await request.post(
-        "http://localhost:3000/orders",
+        "/orders",
         {
             data: {
                 customer_email: "customer@test.com",
@@ -119,7 +132,7 @@ test("A customer cannot purchase a product that does not exist", async ({ reques
 
 test("A customer cannot place an order with quantity 0", async ({ request }) => {
     const response = await request.post(
-        "http://localhost:3000/orders",
+        "/orders",
         {
             data: {
                 customer_email: "customer@test.com",
@@ -151,7 +164,7 @@ test("A customer cannot place an order with quantity 0", async ({ request }) => 
 test("Customer can purchase an available product end to end", async ({ request }) => {
 
     const productResponse = await request.get(
-        "http://localhost:3000/products"
+        "/products"
     );
 
     expect(productResponse.status()).toBe(200);
@@ -162,7 +175,7 @@ test("Customer can purchase an available product end to end", async ({ request }
     expect(products[0].stock).toBeGreaterThanOrEqual(2);
 
     const orderResponse = await request.post(
-        "http://localhost:3000/orders",
+        "/orders",
         {
             data: {
                 customer_email: "customer@test.com",
@@ -191,7 +204,7 @@ test("Customer can purchase an available product end to end", async ({ request }
 });
 test("A customer can purchase a product only when the requested quantity is greater than 0 and does not exceed the available stock.", async ({ request }) => {
     const response = await request.post(
-        "http://localhost:3000/orders",
+        "/orders",
         {
             data: {
                 customer_email: "customer@test.com",
@@ -220,3 +233,29 @@ test("A customer can purchase a product only when the requested quantity is grea
 
     expect(order).toBeDefined();
 });
+
+test("System should reject orders that exceed the remaining stock", async ({ request }) => {
+    // First order: request 7 laptops when stock is 10
+    const firstResponse = await request.post("/orders", {
+        data: {
+            customer_email: "first@test.com",
+            product_id: 1,
+            quantity: 7
+        }
+    });
+
+    expect(firstResponse.status()).toBe(201);
+
+    // Second order: only 3 laptops should remain
+    const secondResponse = await request.post("/orders", {
+        data: {
+            customer_email: "second@test.com",
+            product_id: 1,
+            quantity: 7
+        }
+    });
+
+    // The second order should be rejected
+    expect(secondResponse.status()).toBe(400);
+});
+
