@@ -6,6 +6,16 @@ const testData = {
     excessiveQuantity: 11
 };
 test.beforeEach(async ({ page }) => {
+    const db = require("../database");
+
+    db.prepare("DELETE FROM orders").run();
+
+    db.prepare(`
+        UPDATE products
+        SET stock = 10
+        WHERE id = 1
+    `).run();
+
     await page.goto("/");
 });
 
