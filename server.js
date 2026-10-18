@@ -22,9 +22,9 @@ app.post("/orders", (req, res) => {
             message: "Product not found"
         });
     }
-    if (quantity <= 0) {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
     return res.status(400).json({
-        message: "Quantity must be greater than 0"
+        message: "Quantity must be a positive integer"
     });
     }
 
